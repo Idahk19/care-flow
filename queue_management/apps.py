@@ -1,5 +1,5 @@
 from django.apps import AppConfig
 
 
-class CareflowAppConfig(AppConfig):
-    name = 'careflow_app'
+class QueueManagementConfig(AppConfig):
+    name = 'queue_management'
