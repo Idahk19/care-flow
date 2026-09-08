@@ -9,7 +9,6 @@ class User(AbstractUser):
         STAFF = 'STAFF', 'Staff'
         ADMIN = 'ADMIN', 'Admin'
 
-    username = None
     email = models.EmailField(unique=True)
 
     role = models.CharField(
@@ -23,9 +22,6 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
-
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
 
     def save(self, *args, **kwargs):
         if self.is_superuser:
