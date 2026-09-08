@@ -12,6 +12,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
+            'username',
             'email',
             'first_name',
             'last_name',
@@ -21,6 +22,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = User.objects.create_user(
+            username=validated_data['username'],
             email=validated_data['email'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
@@ -34,7 +36,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(serializers.Serializer):
 
-    email = serializers.EmailField()
+    username = serializers.CharField()
     password = serializers.CharField(
         write_only=True
     )
@@ -46,9 +48,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id',
+            'username',
             'email',
             'first_name',
             'last_name',
+            'phone_number',
             'role'
         ]
-        read_only_fields = ['id', 'email', 'role']
+        read_only_fields = ['id', 'email', 'role', 'username']
