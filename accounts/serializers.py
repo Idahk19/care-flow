@@ -15,8 +15,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             'email',
             'first_name',
             'last_name',
+            'phone_number',
             'password',
-            'role'
         ]
 
     def create(self, validated_data):
@@ -24,8 +24,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
+            phone_number=validated_data.get('phone_number'),
             password=validated_data['password'],
-            role=validated_data.get('role', 'PATIENT')
+            role=validated_data.get('role', User.Role.PATIENT)
         )
 
         return user
@@ -50,4 +51,4 @@ class UserSerializer(serializers.ModelSerializer):
             'last_name',
             'role'
         ]
-        read_only_fields = ['id', 'email']
+        read_only_fields = ['id', 'email', 'role']
