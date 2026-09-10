@@ -1,7 +1,7 @@
 from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
-
+from accounts.models import User
 from .models import Appointment, AppointmentSlot
 from .serializers import (
     AppointmentBookingSerializer,
@@ -62,9 +62,22 @@ class AppointmentDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        user = self.request.user
+
+        # Admin sees all appointments
+        if user.is_superuser or user.role == User.Role.ADMIN:
+            return Appointment.objects.all().order_by('-booked_at')
+
+        # Doctor sees only appointments assigned to them
+        if hasattr(user, 'doctor_profile'):
+            return Appointment.objects.filter(
+                doctor=user.doctor_profile
+            ).order_by('-booked_at')
+
+        # Patient sees only appointments they booked
         return Appointment.objects.filter(
-            patient=self.request.user
-        )
+            patient=user
+        ).order_by('-booked_at')
 
 
 class AppointmentUpdateView(generics.UpdateAPIView):
@@ -117,3 +130,27 @@ class AppointmentCancelView(generics.UpdateAPIView):
         appointment.slot.is_available = True
         appointment.slot.save(update_fields=['is_available'])
 
+class AppointmentDeleteView(generics.DestroyAPIView):
+    queryset = Appointment.objects.all()
+    serializer_class = AppointmentBookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Appointment.objects.filter(
+            patient=self.request.user
+        )
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        # Make the slot available again
+        slot = (
+            AppointmentSlot.objects
+            .select_for_update()
+            .get(id=instance.slot_id)
+        )
+
+        slot.is_available = True
+        slot.save(update_fields=['is_available'])
+
+        # Delete the appointment
+        instance.delete()

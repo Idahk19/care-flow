@@ -121,3 +121,59 @@ class UserListView(APIView):
             serializer.data,
             status=status.HTTP_200_OK
         )
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+
+        if not current_password or not new_password:
+            return Response(
+                {
+                    'error': 'Current password and new password are required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify the user's current password
+        user = authenticate(
+            username=request.user.username,
+            password=current_password
+        )
+
+        if user is None:
+            return Response(
+                {
+                    'error': 'Current password is incorrect.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(new_password) < 8:
+            return Response(
+                {
+                    'error': 'New password must be at least 8 characters.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if current_password == new_password:
+            return Response(
+                {
+                    'error': 'New password must be different from the current password.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Hash and store the new password
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {
+                'message': 'Password changed successfully.'
+            },
+            status=status.HTTP_200_OK
+        )
