@@ -55,4 +55,4 @@ class UserSerializer(serializers.ModelSerializer):
             'phone_number',
             'role'
         ]
-        read_only_fields = ['id', 'email', 'role', 'username']
+        read_only_fields = ['id', 'role']
