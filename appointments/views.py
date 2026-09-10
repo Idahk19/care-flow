@@ -1,48 +1,118 @@
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.decorators import action
+from django.db import transaction
+from rest_framework import generics, permissions
+from rest_framework.exceptions import ValidationError
 
-from .models import Appointment
-from .serializers import AppointmentSerializer
+from .models import Appointment, AppointmentSlot
+from .serializers import (
+    AppointmentBookingSerializer,
+)
 
-
-class AppointmentViewSet(viewsets.ModelViewSet):
+# Create/book an appointment
+class AppointmentCreateView(generics.CreateAPIView):
     queryset = Appointment.objects.all()
-    serializer_class = AppointmentSerializer
+    serializer_class = AppointmentBookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+    @transaction.atomic
+    def perform_create(self, serializer):
 
-        if serializer.is_valid():
-            appointment = serializer.save()
+        slot_id = serializer.validated_data['slot'].id
 
-            return Response(
-                AppointmentSerializer(appointment).data,
-                status=status.HTTP_201_CREATED
-            )
-
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
+        # Lock the slot while booking it
+        slot = (
+            AppointmentSlot.objects
+            .select_for_update()
+            .get(id=slot_id)
         )
 
-    @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
-        appointment = self.get_object()
+        # Check availability again inside the transaction
+        if not slot.is_available:
+            raise ValidationError({
+                'slot': 'This time slot has already been booked. Please select another slot.'
+            })
 
-        appointment.status = 'CANCELLED'
-        appointment.save()
+        if hasattr(slot, 'appointment'):
+            raise ValidationError({
+                'slot': 'This time slot has already been booked. Please select another slot.'
+            })
 
-        return Response({
-            'message': 'Appointment cancelled successfully.',
-            'appointment': AppointmentSerializer(appointment).data
-        })
+        appointment = serializer.save(
+            patient=self.request.user,
+            slot=slot
+        )
 
-    @action(detail=True, methods=['get'])
-    def appointment_status(self, request, pk=None):
-        appointment = self.get_object()
+        slot.is_available = False
+        slot.save(update_fields=['is_available'])
 
-        return Response({
-            'appointment_id': appointment.id,
-            'status': appointment.status
-        })
+
+# View patient's appointments
+class AppointmentListView(generics.ListAPIView):
+    serializer_class = AppointmentBookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Appointment.objects.filter(
+            patient=self.request.user
+        ).order_by('-booked_at')
+
+
+# View one appointment
+class AppointmentDetailView(generics.RetrieveAPIView):
+    serializer_class = AppointmentBookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Appointment.objects.filter(
+            patient=self.request.user
+        )
+
+
+class AppointmentUpdateView(generics.UpdateAPIView):
+    serializer_class = AppointmentBookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Appointment.objects.filter(
+            patient=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        old_slot = self.get_object().slot
+        new_slot = serializer.validated_data.get('slot')
+
+        if new_slot is None or new_slot == old_slot:
+            serializer.save()
+            return
+
+        if not new_slot.is_available:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError({
+                'slot': 'This slot has already been booked. Please select another slot.'
+            })
+
+        old_slot.is_available = True
+        old_slot.save(update_fields=['is_available'])
+
+        new_slot.is_available = False
+        new_slot.save(update_fields=['is_available'])
+
+        serializer.save(slot=new_slot)
+
+
+class AppointmentCancelView(generics.UpdateAPIView):
+    serializer_class = AppointmentBookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Appointment.objects.filter(
+            patient=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        appointment = serializer.save(
+            status=Appointment.Status.CANCELLED
+        )
+
+        appointment.slot.is_available = True
+        appointment.slot.save(update_fields=['is_available'])
