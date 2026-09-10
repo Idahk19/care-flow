@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 
 class Department(models.Model):
@@ -11,12 +12,18 @@ class Department(models.Model):
 
 
 class Doctor(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='doctor_profile',
+        null=True,
+        blank=True,
+    )
+    
     department = models.ForeignKey(
         Department,
         on_delete=models.PROTECT,
         related_name='doctors',
-        null=True,
-        blank=True,
     )
 
     first_name = models.CharField(max_length=100)
