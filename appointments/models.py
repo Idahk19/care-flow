@@ -23,7 +23,10 @@ class AppointmentSlot(models.Model):
     is_available = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.doctor} - {self.date} {self.start_time}"
+        return (
+            f"{self.start_time.strftime('%I:%M %p')} - "
+            f"{self.end_time.strftime('%I:%M %p')}"
+        )
 
 
 class Appointment(models.Model):
