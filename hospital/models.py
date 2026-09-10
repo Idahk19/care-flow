@@ -14,8 +14,7 @@ class Doctor(models.Model):
 
 class Service(models.Model):
     name = models.CharField(max_length=100)
-    description = models.TextField(blank=True, null=True)
-    duration = models.PositiveIntegerField(help_text="Duration in minutes")
+    description = models.TextField(blank=True, null=True) 
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
