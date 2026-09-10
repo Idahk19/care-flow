@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+
 from hospital.models import Doctor, Service
 
 
@@ -22,10 +23,24 @@ class AppointmentSlot(models.Model):
 
     is_available = models.BooleanField(default=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'doctor',
+                    'service',
+                    'date',
+                    'start_time',
+                ],
+                name='unique_doctor_service_slot'
+            )
+        ]
+        ordering = ['date', 'start_time']
+
     def __str__(self):
         return (
-            f"{self.start_time.strftime('%I:%M %p')} - "
-            f"{self.end_time.strftime('%I:%M %p')}"
+            f"{self.start_time.strftime('%H.%M')} - "
+            f"{self.end_time.strftime('%H.%M')}"
         )
 
 
@@ -37,11 +52,36 @@ class Appointment(models.Model):
         COMPLETED = 'COMPLETED', 'Completed'
         CANCELLED = 'CANCELLED', 'Cancelled'
 
+    # Authenticated patient who made the booking
     patient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='appointments'
     )
+
+    username = models.CharField(
+        max_length=200
+    )
+
+    email = models.EmailField()
+
+    phone = models.CharField(
+        max_length=15
+    )
+
+    service = models.ForeignKey(
+        Service,
+        on_delete=models.PROTECT,
+        related_name='appointments'
+    )
+
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.PROTECT,
+        related_name='appointments'
+    )
+
+    date = models.DateField()
 
     slot = models.OneToOneField(
         AppointmentSlot,
@@ -55,7 +95,14 @@ class Appointment(models.Model):
         default=Status.BOOKED
     )
 
-    booked_at = models.DateTimeField(auto_now_add=True)
+    booked_at = models.DateTimeField(
+        auto_now_add=True
+    )
 
     def __str__(self):
-        return f"{self.patient.email} - {self.slot}"
+        return (
+            f"{self.name} - "
+            f"{self.doctor} - "
+            f"{self.date} - "
+            f"{self.slot}"
+        )
