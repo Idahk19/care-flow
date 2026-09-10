@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAdminUser
 from .models import Department, Doctor, Service
 from .serializers import (
     DepartmentSerializer,
+    DoctorCreateSerializer,
     DoctorSerializer,
     ServiceSerializer,
 )
@@ -25,3 +26,14 @@ class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
     permission_classes = [IsAdminUser]
+
+class DoctorViewSet(viewsets.ModelViewSet):
+    queryset = Doctor.objects.all()
+    serializer_class = DoctorSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return DoctorCreateSerializer
+
+        return DoctorSerializer
