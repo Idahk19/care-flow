@@ -17,7 +17,7 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
     )
 
     phone = serializers.CharField(
-        source='patient.phone',
+        source='patient.phone_number',
         read_only=True
     )
 
