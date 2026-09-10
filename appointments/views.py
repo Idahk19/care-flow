@@ -116,3 +116,4 @@ class AppointmentCancelView(generics.UpdateAPIView):
 
         appointment.slot.is_available = True
         appointment.slot.save(update_fields=['is_available'])
+
