@@ -1,8 +1,10 @@
 from rest_framework import status
+from rest_framework import permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
+from rest_framework.permissions import IsAuthenticated
 
 from .models import User
 from .serializers import (
@@ -40,12 +42,12 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
 
         if serializer.is_valid():
-            email = serializer.validated_data['email']
+            username = serializer.validated_data['username']
             password = serializer.validated_data['password']
 
             user = authenticate(
                 request,
-                username=email,
+                username=username,
                 password=password
             )
 
@@ -69,6 +71,7 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         if request.user.is_authenticated:
@@ -80,6 +83,7 @@ class LogoutView(APIView):
 
 
 class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         serializer = UserSerializer(request.user)
@@ -104,4 +108,16 @@ class ProfileView(APIView):
         return Response(
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
+        )
+
+class UserListView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        users = User.objects.all().order_by('id')
+        serializer = UserSerializer(users, many=True)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
         )
