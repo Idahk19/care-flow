@@ -13,7 +13,7 @@ class AppointmentCreateView(generics.CreateAPIView):
     serializer_class = AppointmentBookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    @transaction.atomic
+    @transaction.atomic # Run everything inside this function as one database transaction
     def perform_create(self, serializer):
 
         slot_id = serializer.validated_data['slot'].id
