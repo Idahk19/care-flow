@@ -2,7 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
-class User(AbstractUser):
+class User(AbstractUser): # you are extending Django's built-in user model.
 
     class Role(models.TextChoices):
         PATIENT = 'PATIENT', 'Patient'

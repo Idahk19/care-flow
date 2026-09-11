@@ -20,10 +20,9 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-     path('api-auth/', include('rest_framework.urls')),
+    path('api-auth/', include('rest_framework.urls')),
 
     path('api/accounts/', include('accounts.urls')),
     path('api/hospital/', include('hospital.urls')),
     path('api/appointments/', include('appointments.urls')),
-    path('api/queue/', include('queue_management.urls')),
 ]
