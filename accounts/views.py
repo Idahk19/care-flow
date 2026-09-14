@@ -2,10 +2,10 @@ from rest_framework import status
 from rest_framework import permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated
-
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from .models import User
 from .serializers import (
     RegisterSerializer,
@@ -16,17 +16,16 @@ from .serializers import (
 
 class RegisterView(APIView):
 
+    permission_classes = []
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
 
         if serializer.is_valid():
             user = serializer.save()
 
-            token, created = Token.objects.get_or_create(user=user)
-
             return Response({
                 'message': 'Account created successfully.',
-                'token': token.key,
                 'user': UserSerializer(user).data
             }, status=status.HTTP_201_CREATED)
 
@@ -52,16 +51,17 @@ class LoginView(APIView):
             )
 
             if user is not None:
-                token, created = Token.objects.get_or_create(user=user)
+                refresh = RefreshToken.for_user(user)
 
                 return Response({
                     'message': 'Login successful.',
-                    'token': token.key,
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
                     'user': UserSerializer(user).data
                 })
 
             return Response({
-                'error': 'Invalid email or password.'
+                'error': 'Invalid username or password.'
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         return Response(
@@ -74,12 +74,28 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if request.user.is_authenticated:
-            Token.objects.filter(user=request.user).delete()
+        refresh_token = request.data.get('refresh')
 
-        return Response({
-            'message': 'Logout successful.'
-        })
+        if not refresh_token:
+            return Response(
+                {'error': 'Refresh token is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            return Response(
+                {'message': 'Logout successful.'},
+                status=status.HTTP_200_OK
+            )
+
+        except TokenError:
+            return Response(
+                {'error': 'Invalid or expired refresh token.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class ProfileView(APIView):
@@ -109,7 +125,7 @@ class ProfileView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
-
+    
 class UserListView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
