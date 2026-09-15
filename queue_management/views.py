@@ -8,6 +8,7 @@ from appointments.models import Appointment
 from hospital.models import Doctor
 from .models import QueueEntry
 from .serializers import (
+    CallNextPatientSerializer,
     CheckInSerializer,
     DoctorQueueSerializer,
     QueueEntrySerializer,
@@ -195,3 +196,70 @@ class DoctorQueueView(generics.GenericAPIView):
             'total_people': queue.count(),
             'patients': serializer.data
         })
+
+class CallNextPatientView(generics.GenericAPIView):
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    @transaction.atomic
+    def post(self, request):
+
+        doctor = request.user.doctor_profile
+
+        today = timezone.localdate()
+
+        queue_entry = (
+            QueueEntry.objects
+            .select_for_update()
+            .select_related(
+                'appointment__patient',
+                'appointment__doctor',
+            )
+            .filter(
+                appointment__doctor=doctor,
+                appointment__date=today,
+                status=QueueEntry.Status.WAITING,
+            )
+            .order_by('queue_number')
+            .first()
+        )
+
+        if not queue_entry:
+            raise ValidationError({
+                'detail': (
+                    'There are no waiting patients '
+                    'in your queue.'
+                )
+            })
+
+        queue_entry.status = QueueEntry.Status.CALLED
+
+        queue_entry.called_at = timezone.now()
+
+        queue_entry.save(
+            update_fields=[
+                'status',
+                'called_at',
+            ]
+        )
+
+        create_notification(
+            patient=queue_entry.appointment.patient,
+            queue_entry=queue_entry,
+            notification_type=Notification.Type.YOUR_TURN,
+            message=(
+                'Your turn. '
+                'Please proceed to the doctor\'s room.'
+            ),
+        )
+
+        serializer = CallNextPatientSerializer(
+            queue_entry
+        )
+
+        return Response(
+            serializer.data,
+            status=200
+        )
