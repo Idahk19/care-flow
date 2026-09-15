@@ -3,12 +3,13 @@ from django.utils import timezone
 
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
-
+from rest_framework.response import Response
 from appointments.models import Appointment
 from hospital.models import Doctor
 from .models import QueueEntry
 from .serializers import (
     CheckInSerializer,
+    DoctorQueueSerializer,
     QueueEntrySerializer,
 )
 
@@ -142,3 +143,44 @@ class CheckInView(generics.CreateAPIView):
             response_serializer.data,
             status=status.HTTP_201_CREATED
         )
+
+class DoctorQueueView(generics.GenericAPIView):
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    def get(self, request):
+
+        today = timezone.localdate()
+
+        doctor = request.user.doctor_profile
+
+        queue = (
+            QueueEntry.objects
+            .filter(
+                appointment__doctor=doctor,
+                appointment__date=today,
+                status__in=[
+                    QueueEntry.Status.WAITING,
+                    QueueEntry.Status.CALLED,
+                    QueueEntry.Status.IN_PROGRESS,
+                ]
+            )
+            .select_related(
+                'appointment__patient'
+            )
+            .order_by('queue_number')
+        )
+
+        serializer = DoctorQueueSerializer(
+            queue,
+            many=True
+        )
+
+        return Response({
+            'doctor': str(doctor),
+            'queue_date': today,
+            'total_people': queue.count(),
+            'patients': serializer.data
+        })
