@@ -1,25 +1,27 @@
 from django.urls import path
 
 from .views import (
-    AppointmentCreateView,
-    AppointmentDeleteView,
     AppointmentListView,
+    AppointmentCreateView,
     AppointmentDetailView,
     AppointmentUpdateView,
-    AppointmentCancelView,
+    AppointmentDeleteView,
+    AvailableSlotListView,
 )
 
 urlpatterns = [
-    path(
-        '',
-        AppointmentListView.as_view(),
-        name='appointment-list'
-    ),
+    path('', AppointmentListView.as_view(), name='appointment-list'),
 
     path(
         'book/',
         AppointmentCreateView.as_view(),
         name='appointment-book'
+    ),
+
+    path(
+        'slots/',
+        AvailableSlotListView.as_view(),
+        name='available-slots'
     ),
 
     path(
@@ -34,11 +36,6 @@ urlpatterns = [
         name='appointment-update'
     ),
 
-    path(
-        '<int:pk>/cancel/',
-        AppointmentCancelView.as_view(),
-        name='appointment-cancel'
-    ),
     path(
         '<int:pk>/delete/',
         AppointmentDeleteView.as_view(),
