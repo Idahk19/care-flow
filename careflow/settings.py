@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'hospital',
     'appointments',
     'queue_management',
+    'notifications',
 ]
 
 REST_FRAMEWORK = {
