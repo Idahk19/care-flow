@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import CheckInView, DoctorQueueView
+from .views import CallNextPatientView, CheckInView, DoctorQueueView
 
 
 urlpatterns = [
@@ -13,5 +13,10 @@ urlpatterns = [
         'doctor/',
         DoctorQueueView.as_view(),
         name='doctor-queue'
+    ),
+    path(
+        'doctor/call-next/',
+        CallNextPatientView.as_view(),
+        name='doctor-call-next'
     ),
 ]
