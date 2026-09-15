@@ -11,6 +11,7 @@ from .serializers import (
     CallNextPatientSerializer,
     CheckInSerializer,
     DoctorQueueSerializer,
+    MyQueueSerializer,
     QueueEntrySerializer,
 )
 from notifications.services import create_notification
@@ -256,6 +257,56 @@ class CallNextPatientView(generics.GenericAPIView):
         )
 
         serializer = CallNextPatientSerializer(
+            queue_entry
+        )
+
+        return Response(
+            serializer.data,
+            status=200
+        )
+
+class MyQueueView(generics.GenericAPIView):
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    def get(self, request):
+
+        today = timezone.localdate()
+
+        active_statuses = [
+            QueueEntry.Status.WAITING,
+            QueueEntry.Status.CALLED,
+            QueueEntry.Status.IN_PROGRESS,
+        ]
+
+        queue_entry = (
+            QueueEntry.objects
+            .select_related(
+                'appointment__patient',
+                'appointment__doctor',
+                'appointment__service',
+            )
+            .filter(
+                appointment__patient=request.user,
+                appointment__date=today,
+                status__in=active_statuses,
+            )
+            .first()
+        )
+
+        if not queue_entry:
+            return Response(
+                {
+                    'detail': (
+                        'You are not currently in a queue.'
+                    )
+                },
+                status=404
+            )
+
+        serializer = MyQueueSerializer(
             queue_entry
         )
 
