@@ -37,7 +37,7 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
     )
 
     slot = serializers.PrimaryKeyRelatedField(
-        queryset=AppointmentSlot.objects.filter(is_available=True)
+        queryset=AppointmentSlot.objects.all()
     )
 
     # Nice readable output
@@ -99,9 +99,31 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
             'appointment_date',
             'start_time',
             'end_time',
-            'status',
             'booked_at',
         ]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get('request')
+
+        if not request:
+            return
+
+        doctor_id = request.query_params.get('doctor')
+        service_id = request.query_params.get('service')
+        date = request.query_params.get('date')
+
+        if request.method == 'POST':
+            doctor_id = request.data.get('doctor')
+            service_id = request.data.get('service')
+            date = request.data.get('date')
+
+        if doctor_id and service_id and date:
+            self.fields['slot'].queryset = AppointmentSlot.objects.filter(
+                doctor_id=doctor_id,
+                service_id=service_id,
+                date=date
+            ).order_by('start_time')
 
     def get_doctor_name(self, obj):
         doctor = obj.slot.doctor
@@ -145,3 +167,42 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
 
         return attrs
     
+class AvailableSlotSerializer(serializers.ModelSerializer):
+
+    label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AppointmentSlot
+        fields = [
+            'id',
+            'date',
+            'start_time',
+            'end_time',
+            'label',
+        ]
+
+    def get_label(self, obj):
+        return (
+            f"{obj.start_time.strftime('%H.%M')} - "
+            f"{obj.end_time.strftime('%H.%M')}"
+        )
+
+class AppointmentUpdateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Appointment
+        fields = [
+            'service',
+            'doctor',
+            'date',
+            'slot',
+            'status',
+        ]
+
+        extra_kwargs = {
+            'service': {'required': False},
+            'doctor': {'required': False},
+            'date': {'required': False},
+            'slot': {'required': False},
+            'status': {'required': False},
+        }
