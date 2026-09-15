@@ -3,6 +3,11 @@ from rest_framework import serializers
 from appointments.models import Appointment
 from .models import QueueEntry
 
+from .services import (
+    calculate_people_ahead,
+    calculate_estimated_wait,
+)
+
 
 class CheckInSerializer(serializers.Serializer):
 
@@ -69,6 +74,10 @@ class DoctorQueueSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    people_ahead = serializers.SerializerMethodField()
+
+    estimated_wait_minutes = serializers.SerializerMethodField()
+
     class Meta:
         model = QueueEntry
 
@@ -78,4 +87,13 @@ class DoctorQueueSerializer(serializers.ModelSerializer):
             'patient_name',
             'status',
             'checked_in_at',
+            'called_at',
+            'people_ahead',
+            'estimated_wait_minutes',
         ]
+
+    def get_people_ahead(self, obj):
+        return calculate_people_ahead(obj)
+
+    def get_estimated_wait_minutes(self, obj):
+        return calculate_estimated_wait(obj)
