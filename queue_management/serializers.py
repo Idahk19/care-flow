@@ -97,7 +97,79 @@ class DoctorQueueSerializer(serializers.ModelSerializer):
 
     def get_estimated_wait_minutes(self, obj):
         return calculate_estimated_wait(obj)
+    
+class MyQueueSerializer(serializers.ModelSerializer):
 
+    doctor_name = serializers.SerializerMethodField()
+
+    service_name = serializers.CharField(
+        source='appointment.service.name',
+        read_only=True
+    )
+
+    people_ahead = serializers.SerializerMethodField()
+
+    estimated_wait_minutes = serializers.SerializerMethodField()
+
+    message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QueueEntry
+
+        fields = [
+            'queue_number',
+            'status',
+            'doctor_name',
+            'service_name',
+            'people_ahead',
+            'estimated_wait_minutes',
+            'message',
+        ]
+
+    def get_doctor_name(self, obj):
+        doctor = obj.appointment.doctor
+
+        return (
+            f"Dr. {doctor.first_name} "
+            f"{doctor.last_name}"
+        )
+
+    def get_people_ahead(self, obj):
+        return calculate_people_ahead(obj)
+
+    def get_estimated_wait_minutes(self, obj):
+
+        if obj.status in [
+            QueueEntry.Status.CALLED,
+            QueueEntry.Status.IN_PROGRESS,
+        ]:
+            return 0
+
+        return calculate_estimated_wait(obj)
+
+    def get_message(self, obj):
+
+        if obj.status == QueueEntry.Status.CALLED:
+            return (
+                "It's your turn. "
+                "Please proceed to the doctor's room."
+            )
+
+        if obj.status == QueueEntry.Status.IN_PROGRESS:
+            return "Your consultation is in progress."
+
+        people_ahead = calculate_people_ahead(obj)
+
+        if people_ahead == 0:
+            return "You are next. Please be ready."
+
+        if people_ahead == 1:
+            return "There is 1 patient ahead of you."
+
+        return (
+            f"There are {people_ahead} patients "
+            f"ahead of you."
+        )
 
 class CallNextPatientSerializer(serializers.ModelSerializer):
 
