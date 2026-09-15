@@ -61,3 +61,21 @@ class QueueEntrySerializer(serializers.ModelSerializer):
             f"Dr. {doctor.first_name} "
             f"{doctor.last_name}"
         )
+
+class DoctorQueueSerializer(serializers.ModelSerializer):
+
+    patient_name = serializers.CharField(
+        source='appointment.patient.get_full_name',
+        read_only=True
+    )
+
+    class Meta:
+        model = QueueEntry
+
+        fields = [
+            'id',
+            'queue_number',
+            'patient_name',
+            'status',
+            'checked_in_at',
+        ]
