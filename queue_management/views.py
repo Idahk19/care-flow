@@ -12,6 +12,8 @@ from .serializers import (
     DoctorQueueSerializer,
     QueueEntrySerializer,
 )
+from notifications.services import create_notification
+from notifications.models import Notification
 
 
 class CheckInView(generics.CreateAPIView):
@@ -106,6 +108,15 @@ class CheckInView(generics.CreateAPIView):
             status=QueueEntry.Status.WAITING
         )
 
+        create_notification(
+              patient=appointment.patient,
+              queue_entry=queue_entry,
+              notification_type=Notification.Type.CHECKED_IN,
+              message=(
+                  f"You're checked in. "
+                  f"Your queue number is #{queue_entry.queue_number}."
+                ),
+         )
         # Update appointment status
         appointment.status = Appointment.Status.CHECKED_IN
 
