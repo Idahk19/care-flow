@@ -13,6 +13,7 @@ from .serializers import (
     DoctorQueueSerializer,
     MyQueueSerializer,
     QueueEntrySerializer,
+    StartConsultationSerializer,
 )
 from notifications.services import create_notification
 from notifications.models import Notification
@@ -307,6 +308,63 @@ class MyQueueView(generics.GenericAPIView):
             )
 
         serializer = MyQueueSerializer(
+            queue_entry
+        )
+
+        return Response(
+            serializer.data,
+            status=200
+        )
+
+class StartConsultationView(generics.GenericAPIView):
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    @transaction.atomic
+    def post(self, request):
+
+        doctor = request.user.doctor_profile
+
+        today = timezone.localdate()
+
+        queue_entry = (
+            QueueEntry.objects
+            .select_for_update()
+            .select_related(
+                'appointment__patient',
+                'appointment__doctor',
+            )
+            .filter(
+                appointment__doctor=doctor,
+                appointment__date=today,
+                status=QueueEntry.Status.CALLED,
+            )
+            .order_by('called_at')
+            .first()
+        )
+
+        if not queue_entry:
+            raise ValidationError({
+                'detail': (
+                    'There is no called patient '
+                    'to start.'
+                )
+            })
+
+        queue_entry.status = QueueEntry.Status.IN_PROGRESS
+
+        queue_entry.consultation_started_at = timezone.now()
+
+        queue_entry.save(
+            update_fields=[
+                'status',
+                'consultation_started_at',
+            ]
+        )
+
+        serializer = StartConsultationSerializer(
             queue_entry
         )
 

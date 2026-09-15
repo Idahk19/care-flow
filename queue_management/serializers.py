@@ -209,3 +209,41 @@ class CallNextPatientSerializer(serializers.ModelSerializer):
             f"Dr. {doctor.first_name} "
             f"{doctor.last_name}"
         )
+
+class StartConsultationSerializer(serializers.ModelSerializer):
+
+    patient_name = serializers.CharField(
+        source='appointment.patient.get_full_name',
+        read_only=True
+    )
+
+    doctor_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QueueEntry
+
+        fields = [
+            'id',
+            'queue_number',
+            'patient_name',
+            'doctor_name',
+            'status',
+            'consultation_started_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'queue_number',
+            'patient_name',
+            'doctor_name',
+            'status',
+            'consultation_started_at',
+        ]
+
+    def get_doctor_name(self, obj):
+        doctor = obj.appointment.doctor
+
+        return (
+            f"Dr. {doctor.first_name} "
+            f"{doctor.last_name}"
+        )
