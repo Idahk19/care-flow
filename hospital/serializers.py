@@ -1,10 +1,6 @@
-
-from datetime import date, datetime, time, timedelta
-
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from appointments.models import AppointmentSlot
 from .models import Department, Doctor, Service
 
 
@@ -131,41 +127,6 @@ class DoctorCreateSerializer(serializers.ModelSerializer):
         doctor = Doctor.objects.create(
             user=user,
             **validated_data
-        )
-
-        # Create 30 days of appointment slots
-        start_date = date.today()
-        slots = []
-
-        for service in Service.objects.filter(
-            department=doctor.department,
-            is_active=True
-        ):
-            for day in range(30):
-                current_date = start_date + timedelta(days=day)
-
-                for i in range(24):
-                    start = datetime.combine(
-                        current_date,
-                        time(8, 0)
-                    ) + timedelta(minutes=30 * i)
-
-                    end = start + timedelta(minutes=30)
-
-                    slots.append(
-                        AppointmentSlot(
-                            doctor=doctor,
-                            service=service,
-                            date=current_date,
-                            start_time=start.time(),
-                            end_time=end.time(),
-                            is_available=True
-                        )
-                    )
-
-        AppointmentSlot.objects.bulk_create(
-            slots,
-            ignore_conflicts=True
         )
 
         # Store the generated credentials temporarily
