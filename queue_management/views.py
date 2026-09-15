@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from appointments.models import Appointment
 from hospital.models import Doctor
+from queue_management.services import notify_next_patient
 from .models import QueueEntry
 from .serializers import (
     CallNextPatientSerializer,
@@ -14,6 +15,7 @@ from .serializers import (
     DoctorQueueSerializer,
     MyQueueSerializer,
     QueueEntrySerializer,
+    SkipPatientSerializer,
     StartConsultationSerializer,
 )
 from notifications.services import create_notification
@@ -180,6 +182,7 @@ class DoctorQueueView(generics.GenericAPIView):
                     QueueEntry.Status.WAITING,
                     QueueEntry.Status.CALLED,
                     QueueEntry.Status.IN_PROGRESS,
+                    QueueEntry.Status.SKIPPED,
                 ]
             )
             .select_related(
@@ -210,7 +213,6 @@ class CallNextPatientView(generics.GenericAPIView):
     def post(self, request):
 
         doctor = request.user.doctor_profile
-
         today = timezone.localdate()
 
         queue_entry = (
@@ -230,15 +232,32 @@ class CallNextPatientView(generics.GenericAPIView):
         )
 
         if not queue_entry:
+
+            queue_entry = (
+                QueueEntry.objects
+                .select_for_update()
+                .select_related(
+                    'appointment__patient',
+                    'appointment__doctor',
+                )
+                .filter(
+                    appointment__doctor=doctor,
+                    appointment__date=today,
+                    status=QueueEntry.Status.SKIPPED,
+                )
+                .order_by('queue_number')
+                .first()
+            )
+
+        if not queue_entry:
             raise ValidationError({
                 'detail': (
-                    'There are no waiting patients '
+                    'There are no patients waiting '
                     'in your queue.'
                 )
             })
 
         queue_entry.status = QueueEntry.Status.CALLED
-
         queue_entry.called_at = timezone.now()
 
         queue_entry.save(
@@ -266,7 +285,6 @@ class CallNextPatientView(generics.GenericAPIView):
             serializer.data,
             status=200
         )
-
 class MyQueueView(generics.GenericAPIView):
 
     permission_classes = [
@@ -436,5 +454,68 @@ class CompleteConsultationView(generics.GenericAPIView):
 
         return Response(
             serializer.data,
+            status=200
+        )
+class SkipPatientView(generics.GenericAPIView):
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    @transaction.atomic
+    def post(self, request):
+
+        doctor = request.user.doctor_profile
+
+        today = timezone.localdate()
+
+        queue_entry = (
+            QueueEntry.objects
+            .select_for_update()
+            .select_related(
+                'appointment__patient',
+                'appointment__doctor',
+            )
+            .filter(
+                appointment__doctor=doctor,
+                appointment__date=today,
+                status=QueueEntry.Status.CALLED,
+            )
+            .order_by('called_at')
+            .first()
+        )
+
+        if not queue_entry:
+            raise ValidationError({
+                'detail': (
+                    'There is no called patient '
+                    'to skip.'
+                )
+            })
+
+        queue_entry.status = QueueEntry.Status.SKIPPED
+
+        queue_entry.save(
+            update_fields=[
+                'status',
+            ]
+        )
+
+        next_patient = notify_next_patient(
+            doctor=doctor,
+            date=today,
+        )
+
+        serializer = SkipPatientSerializer(
+            queue_entry
+        )
+
+        return Response(
+            {
+                'skipped_patient': serializer.data,
+                'next_patient_notified': (
+                    next_patient is not None
+                ),
+            },
             status=200
         )
