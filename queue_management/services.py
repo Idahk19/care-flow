@@ -1,5 +1,6 @@
 from django.utils import timezone
-
+from notifications.services import create_notification
+from notifications.models import Notification
 from .models import QueueEntry
 
 
@@ -90,3 +91,38 @@ def calculate_estimated_wait(queue_entry):
             * AVERAGE_CONSULTATION_MINUTES
         )
     )
+
+def notify_next_patient(doctor, date):
+    """
+    Notify the next waiting patient that
+    they are almost up.
+    """
+
+    next_patient = (
+        QueueEntry.objects
+        .select_related(
+            'appointment__patient',
+        )
+        .filter(
+            appointment__doctor=doctor,
+            appointment__date=date,
+            status=QueueEntry.Status.WAITING,
+        )
+        .order_by('queue_number')
+        .first()
+    )
+
+    if not next_patient:
+        return None
+
+    create_notification(
+        patient=next_patient.appointment.patient,
+        queue_entry=next_patient,
+        notification_type=Notification.Type.ALMOST_TURN,
+        message=(
+            "You're almost up. "
+            "Please be ready."
+        ),
+    )
+
+    return next_patient
