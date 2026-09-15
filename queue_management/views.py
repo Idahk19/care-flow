@@ -10,6 +10,7 @@ from .models import QueueEntry
 from .serializers import (
     CallNextPatientSerializer,
     CheckInSerializer,
+    CompleteConsultationSerializer,
     DoctorQueueSerializer,
     MyQueueSerializer,
     QueueEntrySerializer,
@@ -365,6 +366,71 @@ class StartConsultationView(generics.GenericAPIView):
         )
 
         serializer = StartConsultationSerializer(
+            queue_entry
+        )
+
+        return Response(
+            serializer.data,
+            status=200
+        )
+
+class CompleteConsultationView(generics.GenericAPIView):
+
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+
+    @transaction.atomic
+    def post(self, request):
+
+        doctor = request.user.doctor_profile
+
+        today = timezone.localdate()
+
+        queue_entry = (
+            QueueEntry.objects
+            .select_for_update()
+            .select_related(
+                'appointment__patient',
+                'appointment__doctor',
+            )
+            .filter(
+                appointment__doctor=doctor,
+                appointment__date=today,
+                status=QueueEntry.Status.IN_PROGRESS,
+            )
+            .order_by('consultation_started_at')
+            .first()
+        )
+
+        if not queue_entry:
+            raise ValidationError({
+                'detail': (
+                    'There is no consultation '
+                    'currently in progress.'
+                )
+            })
+
+        queue_entry.status = QueueEntry.Status.COMPLETED
+
+        queue_entry.consultation_completed_at = timezone.now()
+
+        queue_entry.save(
+            update_fields=[
+                'status',
+                'consultation_completed_at',
+            ]
+        )
+
+        appointment = queue_entry.appointment
+
+        appointment.status = Appointment.Status.COMPLETED
+
+        appointment.save(
+            update_fields=['status']
+        )
+
+        serializer = CompleteConsultationSerializer(
             queue_entry
         )
 
