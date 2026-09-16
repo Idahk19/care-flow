@@ -1,6 +1,9 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
-
+from rest_framework import generics
+from rest_framework.views import APIView, Response
+from accounts.models import User
+from appointments.models import Appointment
 from .models import Department, Doctor, Service
 from .serializers import (
     DepartmentSerializer,
@@ -37,3 +40,21 @@ class DoctorViewSet(viewsets.ModelViewSet):
             return DoctorCreateSerializer
 
         return DoctorSerializer
+
+class AdminDashboardView(APIView):
+    permission_classes = [IsAdminUser]
+    
+
+    def get(self, request):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'error': 'Admin access required.'},
+                status=403
+            )
+
+        return Response({
+            'total_patients': User.objects.filter(role='PATIENT').count(),
+            'total_doctors': Doctor.objects.count(),
+            'total_services': Service.objects.count(),
+            'total_appointments': Appointment.objects.count(),
+        })
