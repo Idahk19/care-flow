@@ -77,13 +77,13 @@ urlpatterns = [
     path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
 
     path(
-    'admin/patients/',
+    'patients/',
     AdminPatientListView.as_view(),
     name='admin-patient-list'
 ),
 
 path(
-    'admin/patients/<int:pk>/',
+    'patients/<int:pk>/',
     AdminPatientDeleteView.as_view(),
     name='admin-patient-delete'
 ),
