@@ -6,6 +6,7 @@ from accounts.models import User
 from appointments.models import Appointment
 from .models import Department, Doctor, Service
 from .serializers import (
+    AdminPatientSerializer,
     DepartmentSerializer,
     DoctorCreateSerializer,
     DoctorSerializer,
@@ -58,3 +59,28 @@ class AdminDashboardView(APIView):
             'total_services': Service.objects.count(),
             'total_appointments': Appointment.objects.count(),
         })
+
+class AdminPatientListView(generics.ListAPIView):
+    serializer_class = AdminPatientSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        if self.request.user.role != 'ADMIN':
+            return User.objects.none()
+
+        return User.objects.filter(
+            role='PATIENT'
+        ).order_by('id')
+
+
+class AdminPatientDeleteView(generics.DestroyAPIView):
+    serializer_class = AdminPatientSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        if self.request.user.role != 'ADMIN':
+            return User.objects.none()
+
+        return User.objects.filter(
+            role='PATIENT'
+        )

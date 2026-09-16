@@ -151,3 +151,25 @@ class DoctorCreateSerializer(serializers.ModelSerializer):
         )
 
         return data
+    
+class AdminPatientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'phone_number',
+            'role',
+        ]
+        read_only_fields = [
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'phone_number',
+            'role',
+        ]
