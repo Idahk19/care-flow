@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AdminDashboardView,
     DepartmentViewSet,
     DoctorViewSet,
     ServiceViewSet,
@@ -70,4 +71,5 @@ urlpatterns = [
         }),
         name='service-detail',
     ),
+    path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
 ]
