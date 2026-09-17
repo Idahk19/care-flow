@@ -9,8 +9,14 @@ from .serializers import (
     AppointmentBookingSerializer,
     AvailableSlotSerializer,
     AppointmentUpdateSerializer,
+    DoctorAppointmentSerializer,
 )
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
+from .models import Appointment
 # Create/book an appointment
 class AppointmentCreateView(generics.CreateAPIView):
     queryset = Appointment.objects.all()
@@ -268,3 +274,63 @@ class AvailableSlotListView(generics.ListAPIView):
         return slots.filter(
             is_available=True
         ).order_by('start_time')
+
+class DoctorDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        # Make sure the logged-in user is a doctor
+        if not hasattr(request.user, 'doctor_profile'):
+            return Response(
+                {'error': 'Doctor access required.'},
+                status=403
+            )
+
+        doctor = request.user.doctor_profile
+        today = timezone.localdate()
+
+        # Today's appointments for this doctor
+        appointments = Appointment.objects.filter(
+            doctor=doctor,
+            date=today
+        )
+
+        return Response({
+            'today': appointments.count(),
+
+            'in_progress': appointments.filter(
+                status=Appointment.Status.CHECKED_IN
+            ).count(),
+
+            'completed': appointments.filter(
+                status=Appointment.Status.COMPLETED
+            ).count(),
+
+            'skipped': appointments.filter(
+                status=Appointment.Status.CANCELLED
+            ).count(),
+            })
+
+
+class DoctorTodayAppointmentsView(generics.ListAPIView):
+    serializer_class = DoctorAppointmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not hasattr(self.request.user, 'doctor_profile'):
+            return Appointment.objects.none()
+
+        doctor = self.request.user.doctor_profile
+        today = timezone.localdate()
+
+        return Appointment.objects.filter(
+            doctor=doctor,
+            date=today
+        ).select_related(
+            'patient',
+            'service',
+            'slot'
+        ).order_by(
+            'slot__start_time'
+        )

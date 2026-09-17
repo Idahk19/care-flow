@@ -206,3 +206,41 @@ class AppointmentUpdateSerializer(serializers.ModelSerializer):
             'slot': {'required': False},
             'status': {'required': False},
         }
+
+
+class DoctorAppointmentSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(
+        source='patient.get_full_name',
+        read_only=True
+    )
+
+    service_name = serializers.CharField(
+        source='service.name',
+        read_only=True
+    )
+
+    start_time = serializers.TimeField(
+        source='slot.start_time',
+        read_only=True
+    )
+
+    end_time = serializers.TimeField(
+        source='slot.end_time',
+        read_only=True
+    )
+
+    class Meta:
+        model = Appointment
+        fields = [
+            'id',
+            'patient_name',
+            'username',
+            'email',
+            'phone',
+            'service_name',
+            'date',
+            'start_time',
+            'end_time',
+            'status',
+        ]
+        read_only_fields = fields
