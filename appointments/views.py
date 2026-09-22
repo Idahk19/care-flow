@@ -334,3 +334,15 @@ class DoctorTodayAppointmentsView(generics.ListAPIView):
         ).order_by(
             'slot__start_time'
         )
+    
+class AdminAppointmentListView(generics.ListAPIView):
+    serializer_class = DoctorAppointmentSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        return Appointment.objects.all().select_related(
+            'patient',
+            'doctor',
+            'service',
+            'slot',
+        ).order_by('-booked_at')

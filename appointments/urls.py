@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AdminAppointmentListView,
     AppointmentListView,
     AppointmentCreateView,
     AppointmentDetailView,
@@ -52,5 +53,10 @@ urlpatterns = [
     'doctor/today/',
     DoctorTodayAppointmentsView.as_view(),
     name='doctor-today-appointments'
+),
+path(
+    'admin/',
+    AdminAppointmentListView.as_view(),
+    name='admin-appointment-list'
 ),
 ]
