@@ -58,6 +58,8 @@ class AdminDashboardView(APIView):
             'total_doctors': Doctor.objects.count(),
             'total_services': Service.objects.count(),
             'total_appointments': Appointment.objects.count(),
+            'total_users': User.objects.count(),
+            'total_departments': Department.objects.count(),
         })
 
 class AdminPatientListView(generics.ListAPIView):
