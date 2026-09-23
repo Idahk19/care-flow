@@ -316,24 +316,20 @@ class DoctorDashboardView(APIView):
 
 class DoctorTodayAppointmentsView(generics.ListAPIView):
     serializer_class = DoctorAppointmentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        if not hasattr(self.request.user, 'doctor_profile'):
-            return Appointment.objects.none()
-
         doctor = self.request.user.doctor_profile
-        today = timezone.localdate()
 
         return Appointment.objects.filter(
-            doctor=doctor,
-            date=today
+            doctor=doctor
         ).select_related(
             'patient',
             'service',
             'slot'
         ).order_by(
-            'slot__start_time'
+            '-date',
+            '-slot__start_time'
         )
     
 class AdminAppointmentListView(generics.ListAPIView):

@@ -214,6 +214,11 @@ class DoctorAppointmentSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    email = serializers.EmailField(
+        source='patient.email',
+        read_only=True
+    )
+
     service_name = serializers.CharField(
         source='service.name',
         read_only=True
@@ -234,16 +239,13 @@ class DoctorAppointmentSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'patient_name',
-            'username',
             'email',
-            'phone',
             'service_name',
             'date',
             'start_time',
             'end_time',
             'status',
         ]
-        read_only_fields = fields
 
 class AdminAppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(
