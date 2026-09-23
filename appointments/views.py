@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from accounts.models import User
 from .models import Appointment, AppointmentSlot
 from .serializers import (
+    AdminAppointmentSerializer,
     AppointmentBookingSerializer,
     AvailableSlotSerializer,
     AppointmentUpdateSerializer,
@@ -336,7 +337,7 @@ class DoctorTodayAppointmentsView(generics.ListAPIView):
         )
     
 class AdminAppointmentListView(generics.ListAPIView):
-    serializer_class = DoctorAppointmentSerializer
+    serializer_class = AdminAppointmentSerializer
     permission_classes = [permissions.IsAdminUser]
 
     def get_queryset(self):

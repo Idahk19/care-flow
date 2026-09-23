@@ -244,3 +244,70 @@ class DoctorAppointmentSerializer(serializers.ModelSerializer):
             'status',
         ]
         read_only_fields = fields
+
+class AdminAppointmentSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(
+        source='patient.get_full_name',
+        read_only=True
+    )
+
+    patient_email = serializers.EmailField(
+        source='patient.email',
+        read_only=True
+    )
+
+    patient_phone = serializers.CharField(
+        source='patient.phone_number',
+        read_only=True
+    )
+
+    doctor_name = serializers.SerializerMethodField(
+        read_only=True
+    )
+
+    service_name = serializers.CharField(
+        source='service.name',
+        read_only=True
+    )
+
+    department_name = serializers.CharField(
+        source='doctor.department.name',
+        read_only=True
+    )
+
+    appointment_date = serializers.DateField(
+        source='slot.date',
+        read_only=True
+    )
+
+    start_time = serializers.TimeField(
+        source='slot.start_time',
+        read_only=True
+    )
+
+    end_time = serializers.TimeField(
+        source='slot.end_time',
+        read_only=True
+    )
+
+    class Meta:
+        model = Appointment
+        fields = [
+            'id',
+            'patient_name',
+            'patient_email',
+            'patient_phone',
+            'doctor_name',
+            'service_name',
+            'department_name',
+            'appointment_date',
+            'start_time',
+            'end_time',
+            'status',
+            'booked_at',
+        ]
+
+    def get_doctor_name(self, obj):
+        doctor = obj.doctor
+
+        return f"Dr. {doctor.first_name} {doctor.last_name}"
