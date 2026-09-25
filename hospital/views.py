@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from rest_framework import permissions
 from rest_framework.permissions import IsAdminUser
 from rest_framework import generics
 from rest_framework.views import APIView, Response
@@ -22,7 +23,14 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
-    permission_classes = [IsAdminUser]
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [permissions.IsAuthenticated]
+        else:
+            permission_classes = [permissions.IsAdminUser]
+
+        return [permission() for permission in permission_classes]
 
 class DoctorViewSet(viewsets.ModelViewSet):
     queryset = Doctor.objects.all()
