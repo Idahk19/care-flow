@@ -5,6 +5,8 @@ from django.db import models
 class Notification(models.Model):
 
     class Type(models.TextChoices):
+        APPOINTMENT_BOOKED = 'APPOINTMENT_BOOKED', 'Appointment Booked'
+        APPOINTMENT_REMINDER = 'APPOINTMENT_REMINDER', 'Appointment Reminder'
         CHECKED_IN = 'CHECKED_IN', 'Checked In'
         ALMOST_TURN = 'ALMOST_TURN', 'Almost Your Turn'
         YOUR_TURN = 'YOUR_TURN', 'Your Turn'
@@ -13,6 +15,14 @@ class Notification(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='notifications'
+    )
+
+    appointment = models.ForeignKey(
+        'appointments.Appointment',
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        null=True,
+        blank=True
     )
 
     queue_entry = models.ForeignKey(
@@ -48,7 +58,14 @@ class Notification(models.Model):
                     'notification_type',
                 ],
                 name='unique_queue_notification_type'
-            )
+            ),
+            models.UniqueConstraint(
+                fields=[
+                    'appointment',
+                    'notification_type',
+                ],
+                name='unique_appointment_notification_type'
+            ),
         ]
 
     def __str__(self):
