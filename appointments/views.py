@@ -1,9 +1,22 @@
 from datetime import datetime, time, timedelta
+
 from django.db import transaction
 from django.utils import timezone
+
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
 from accounts.models import User
+
+from notifications.models import Notification
+from notifications.services import (
+    create_notification,
+    send_notification_sms,
+)
+
 from .models import Appointment, AppointmentSlot
 from .serializers import (
     AdminAppointmentSerializer,
@@ -13,38 +26,37 @@ from .serializers import (
     DoctorAppointmentSerializer,
 )
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 
-from .models import Appointment
-# Create/book an appointment
 class AppointmentCreateView(generics.CreateAPIView):
     queryset = Appointment.objects.all()
     serializer_class = AppointmentBookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    @transaction.atomic # Run everything inside this function as one database transaction
+    @transaction.atomic
     def perform_create(self, serializer):
 
         slot_id = serializer.validated_data['slot'].id
 
-        # Lock the slot while booking it
         slot = (
             AppointmentSlot.objects
             .select_for_update()
             .get(id=slot_id)
         )
 
-        # Check availability again inside the transaction
         if not slot.is_available:
             raise ValidationError({
-                'slot': 'This time slot has already been booked. Please select another slot.'
+                'slot': (
+                    'This time slot has already been booked. '
+                    'Please select another slot.'
+                )
             })
 
         if hasattr(slot, 'appointment'):
             raise ValidationError({
-                'slot': 'This time slot has already been booked. Please select another slot.'
+                'slot': (
+                    'This time slot has already been booked. '
+                    'Please select another slot.'
+                )
             })
 
         appointment = serializer.save(
@@ -55,8 +67,36 @@ class AppointmentCreateView(generics.CreateAPIView):
         slot.is_available = False
         slot.save(update_fields=['is_available'])
 
+        doctor_name = (
+            f"Dr. {appointment.doctor.first_name} "
+            f"{appointment.doctor.last_name}"
+        )
 
-# View patient's appointments
+        service_name = appointment.service.name
+
+        appointment_time = appointment.slot.start_time.strftime(
+            '%I:%M %p'
+        )
+
+        message = (
+            f"Your appointment has been booked successfully "
+            f"with {doctor_name} for {service_name} on "
+            f"{appointment.date} at {appointment_time}."
+        )
+
+        create_notification(
+            patient=appointment.patient,
+            appointment=appointment,
+            notification_type=Notification.Type.APPOINTMENT_BOOKED,
+            message=message,
+        )
+
+        send_notification_sms(
+            patient=appointment.patient,
+            message=message,
+        )
+
+
 class AppointmentListView(generics.ListAPIView):
     serializer_class = AppointmentBookingSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -67,7 +107,6 @@ class AppointmentListView(generics.ListAPIView):
         ).order_by('-booked_at')
 
 
-# View one appointment
 class AppointmentDetailView(generics.RetrieveAPIView):
     serializer_class = AppointmentBookingSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -75,17 +114,14 @@ class AppointmentDetailView(generics.RetrieveAPIView):
     def get_queryset(self):
         user = self.request.user
 
-        # Admin sees all appointments
         if user.is_superuser or user.role == User.Role.ADMIN:
             return Appointment.objects.all().order_by('-booked_at')
 
-        # Doctor sees only appointments assigned to them
         if hasattr(user, 'doctor_profile'):
             return Appointment.objects.filter(
                 doctor=user.doctor_profile
             ).order_by('-booked_at')
 
-        # Patient sees only appointments they booked
         return Appointment.objects.filter(
             patient=user
         ).order_by('-booked_at')
@@ -110,7 +146,6 @@ class AppointmentUpdateView(generics.UpdateAPIView):
         new_status = serializer.validated_data.get('status')
         new_slot = serializer.validated_data.get('slot')
 
-        # Cancel appointment
         if new_status == Appointment.Status.CANCELLED:
 
             serializer.save(
@@ -124,17 +159,14 @@ class AppointmentUpdateView(generics.UpdateAPIView):
 
             return
 
-        # No new slot selected
         if new_slot is None:
             serializer.save()
             return
 
-        # Same slot
         if new_slot.id == old_slot.id:
             serializer.save()
             return
 
-        # New slot is already booked
         if not new_slot.is_available:
             raise ValidationError({
                 'slot': (
@@ -143,13 +175,11 @@ class AppointmentUpdateView(generics.UpdateAPIView):
                 )
             })
 
-        # Release old slot
         old_slot.is_available = True
         old_slot.save(
             update_fields=['is_available']
         )
 
-        # Book new slot
         new_slot.is_available = False
         new_slot.save(
             update_fields=['is_available']
@@ -158,6 +188,7 @@ class AppointmentUpdateView(generics.UpdateAPIView):
         serializer.save(
             slot=new_slot
         )
+
 
 class AppointmentDeleteView(generics.DestroyAPIView):
     queryset = Appointment.objects.all()
@@ -171,7 +202,7 @@ class AppointmentDeleteView(generics.DestroyAPIView):
 
     @transaction.atomic
     def perform_destroy(self, instance):
-        # Make the slot available again
+
         slot = (
             AppointmentSlot.objects
             .select_for_update()
@@ -181,9 +212,9 @@ class AppointmentDeleteView(generics.DestroyAPIView):
         slot.is_available = True
         slot.save(update_fields=['is_available'])
 
-        # Delete the appointment
         instance.delete()
-        
+
+
 class AvailableSlotListView(generics.ListAPIView):
     serializer_class = AvailableSlotSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -208,20 +239,17 @@ class AvailableSlotListView(generics.ListAPIView):
                 'date': 'Use the format YYYY-MM-DD.'
             })
 
-        # Do not allow past dates
         if requested_date < timezone.localdate():
             raise ValidationError({
                 'date': 'You cannot view slots for a previous day.'
             })
 
-        # Check if slots already exist
         slots = AppointmentSlot.objects.filter(
             doctor_id=doctor_id,
             service_id=service_id,
             date=requested_date
         )
 
-        # If no slots exist, generate slots for the selected date
         if not slots.exists():
 
             start_time = time(8, 0)
@@ -264,24 +292,22 @@ class AvailableSlotListView(generics.ListAPIView):
                 ignore_conflicts=True
             )
 
-            # Get the newly-created slots
             slots = AppointmentSlot.objects.filter(
                 doctor_id=doctor_id,
                 service_id=service_id,
                 date=requested_date
             )
 
-        # Return ONLY slots that are still available
         return slots.filter(
             is_available=True
         ).order_by('start_time')
+
 
 class DoctorDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
 
-        # Make sure the logged-in user is a doctor
         if not hasattr(request.user, 'doctor_profile'):
             return Response(
                 {'error': 'Doctor access required.'},
@@ -291,7 +317,6 @@ class DoctorDashboardView(APIView):
         doctor = request.user.doctor_profile
         today = timezone.localdate()
 
-        # Today's appointments for this doctor
         appointments = Appointment.objects.filter(
             doctor=doctor,
             date=today
@@ -311,7 +336,7 @@ class DoctorDashboardView(APIView):
             'skipped': appointments.filter(
                 status=Appointment.Status.CANCELLED
             ).count(),
-            })
+        })
 
 
 class DoctorTodayAppointmentsView(generics.ListAPIView):
@@ -331,7 +356,8 @@ class DoctorTodayAppointmentsView(generics.ListAPIView):
             '-date',
             '-slot__start_time'
         )
-    
+
+
 class AdminAppointmentListView(generics.ListAPIView):
     serializer_class = AdminAppointmentSerializer
     permission_classes = [permissions.IsAdminUser]
