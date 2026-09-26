@@ -4,6 +4,7 @@ from django.utils import timezone
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+
 from appointments.models import Appointment
 from hospital.models import Doctor
 from queue_management.services import notify_next_patient
@@ -18,7 +19,10 @@ from .serializers import (
     SkipPatientSerializer,
     StartConsultationSerializer,
 )
-from notifications.services import create_notification
+from notifications.services import (
+    create_notification,
+    send_notification_sms,
+)
 from notifications.models import Notification
 
 
@@ -46,7 +50,6 @@ class CheckInView(generics.CreateAPIView):
 
         today = timezone.localdate()
 
-        # Appointment must be for today
         if appointment.date != today:
             raise ValidationError({
                 'appointment': (
@@ -55,7 +58,6 @@ class CheckInView(generics.CreateAPIView):
                 )
             })
 
-        # Appointment cannot be cancelled
         if appointment.status == Appointment.Status.CANCELLED:
             raise ValidationError({
                 'appointment': (
@@ -64,7 +66,6 @@ class CheckInView(generics.CreateAPIView):
                 )
             })
 
-        # Appointment cannot already be completed
         if appointment.status == Appointment.Status.COMPLETED:
             raise ValidationError({
                 'appointment': (
@@ -72,7 +73,6 @@ class CheckInView(generics.CreateAPIView):
                 )
             })
 
-        # Check whether the patient is already in the queue
         if hasattr(appointment, 'queue_entry'):
             raise ValidationError({
                 'appointment': (
@@ -81,15 +81,12 @@ class CheckInView(generics.CreateAPIView):
                 )
             })
 
-        # Lock the doctor so two receptionists cannot
-        # generate the same queue number at the same time
         doctor = (
             Doctor.objects
             .select_for_update()
             .get(id=appointment.doctor_id)
         )
 
-        # Find the highest queue number for this doctor today
         last_queue_entry = (
             QueueEntry.objects
             .filter(
@@ -107,23 +104,29 @@ class CheckInView(generics.CreateAPIView):
         else:
             next_queue_number = 1
 
-        # Create queue entry
         queue_entry = QueueEntry.objects.create(
             appointment=appointment,
             queue_number=next_queue_number,
             status=QueueEntry.Status.WAITING
         )
 
+        message = (
+            f"You're checked in. "
+            f"Your queue number is #{queue_entry.queue_number}."
+        )
+
         create_notification(
-              patient=appointment.patient,
-              queue_entry=queue_entry,
-              notification_type=Notification.Type.CHECKED_IN,
-              message=(
-                  f"You're checked in. "
-                  f"Your queue number is #{queue_entry.queue_number}."
-                ),
-         )
-        # Update appointment status
+            patient=appointment.patient,
+            queue_entry=queue_entry,
+            notification_type=Notification.Type.CHECKED_IN,
+            message=message,
+        )
+
+        send_notification_sms(
+            patient=appointment.patient,
+            message=message,
+        )
+
         appointment.status = Appointment.Status.CHECKED_IN
 
         appointment.save(
@@ -153,13 +156,11 @@ class CheckInView(generics.CreateAPIView):
             }
         )
 
-        from rest_framework.response import Response
-        from rest_framework import status
-
         return Response(
             response_serializer.data,
-            status=status.HTTP_201_CREATED
+            status=201
         )
+
 
 class DoctorQueueView(generics.GenericAPIView):
 
@@ -202,6 +203,7 @@ class DoctorQueueView(generics.GenericAPIView):
             'total_people': queue.count(),
             'patients': serializer.data
         })
+
 
 class CallNextPatientView(generics.GenericAPIView):
 
@@ -267,14 +269,21 @@ class CallNextPatientView(generics.GenericAPIView):
             ]
         )
 
+        message = (
+            'Your turn. '
+            'Please proceed to the doctor\'s room.'
+        )
+
         create_notification(
             patient=queue_entry.appointment.patient,
             queue_entry=queue_entry,
             notification_type=Notification.Type.YOUR_TURN,
-            message=(
-                'Your turn. '
-                'Please proceed to the doctor\'s room.'
-            ),
+            message=message,
+        )
+
+        send_notification_sms(
+            patient=queue_entry.appointment.patient,
+            message=message,
         )
 
         serializer = CallNextPatientSerializer(
@@ -285,6 +294,8 @@ class CallNextPatientView(generics.GenericAPIView):
             serializer.data,
             status=200
         )
+
+
 class MyQueueView(generics.GenericAPIView):
 
     permission_classes = [
@@ -334,6 +345,7 @@ class MyQueueView(generics.GenericAPIView):
             serializer.data,
             status=200
         )
+
 
 class StartConsultationView(generics.GenericAPIView):
 
@@ -391,6 +403,7 @@ class StartConsultationView(generics.GenericAPIView):
             serializer.data,
             status=200
         )
+
 
 class CompleteConsultationView(generics.GenericAPIView):
 
@@ -456,6 +469,8 @@ class CompleteConsultationView(generics.GenericAPIView):
             serializer.data,
             status=200
         )
+
+
 class SkipPatientView(generics.GenericAPIView):
 
     permission_classes = [

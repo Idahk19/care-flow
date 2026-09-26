@@ -1,6 +1,11 @@
 from django.utils import timezone
-from notifications.services import create_notification
+
+from notifications.services import (
+    create_notification,
+    send_notification_sms,
+)
 from notifications.models import Notification
+
 from .models import QueueEntry
 
 
@@ -8,10 +13,6 @@ AVERAGE_CONSULTATION_MINUTES = 30
 
 
 def calculate_people_ahead(queue_entry):
-    """
-    Calculate how many active patients are ahead
-    of the given queue entry.
-    """
 
     active_statuses = [
         QueueEntry.Status.WAITING,
@@ -32,16 +33,9 @@ def calculate_people_ahead(queue_entry):
 
 
 def calculate_estimated_wait(queue_entry):
-    """
-    Calculate the approximate waiting time in minutes.
-
-    Uses a default average consultation time of
-    20 minutes per patient.
-    """
 
     people_ahead = calculate_people_ahead(queue_entry)
 
-    # Find the patient currently being seen
     current_patient = (
         QueueEntry.objects
         .filter(
@@ -55,12 +49,9 @@ def calculate_estimated_wait(queue_entry):
         .first()
     )
 
-    # If nobody is currently being seen
     if not current_patient:
         return people_ahead * AVERAGE_CONSULTATION_MINUTES
 
-    # Calculate how long the current consultation
-    # has already been running
     if current_patient.consultation_started_at:
 
         elapsed = (
@@ -76,9 +67,6 @@ def calculate_estimated_wait(queue_entry):
     else:
         remaining_time = AVERAGE_CONSULTATION_MINUTES
 
-    # The current patient is included in people_ahead,
-    # so remove them before multiplying the remaining
-    # patients by the full consultation duration.
     other_people_ahead = max(
         0,
         people_ahead - 1
@@ -92,11 +80,8 @@ def calculate_estimated_wait(queue_entry):
         )
     )
 
+
 def notify_next_patient(doctor, date):
-    """
-    Notify the next waiting patient that
-    they are almost up.
-    """
 
     next_patient = (
         QueueEntry.objects
@@ -115,14 +100,21 @@ def notify_next_patient(doctor, date):
     if not next_patient:
         return None
 
+    message = (
+        "You're almost up. "
+        "Please be ready."
+    )
+
     create_notification(
         patient=next_patient.appointment.patient,
         queue_entry=next_patient,
         notification_type=Notification.Type.ALMOST_TURN,
-        message=(
-            "You're almost up. "
-            "Please be ready."
-        ),
+        message=message,
+    )
+
+    send_notification_sms(
+        patient=next_patient.appointment.patient,
+        message=message,
     )
 
     return next_patient
