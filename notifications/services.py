@@ -37,17 +37,24 @@ def create_notification(
 
 
 def send_notification_sms(patient, message):
-    phone_number = getattr(patient, 'phone', None)
+    phone_number = getattr(patient, 'phone_number', None)
 
     if not phone_number:
+        print("No phone number found for patient.")
         return None
 
     try:
-        return send_sms(
+        response = send_sms(
             phone_number,
             message
         )
-    except Exception:
+
+        print("SMS response:", response)
+
+        return response
+
+    except Exception as e:
+        print("SMS error:", e)
         return None
 
 
