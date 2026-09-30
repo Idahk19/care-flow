@@ -5,9 +5,13 @@ from hospital.models import Doctor, Service
 
 
 class AppointmentBookingSerializer(serializers.ModelSerializer):
-    # Patient information comes from the logged-in user
     username = serializers.CharField(
         source='patient.username',
+        read_only=True
+    )
+
+    patient_name = serializers.CharField(
+        source='patient.get_full_name',
         read_only=True
     )
 
@@ -21,7 +25,6 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
-    # Booking selections
     service = serializers.PrimaryKeyRelatedField(
         queryset=Service.objects.filter(is_active=True),
         write_only=True
@@ -40,7 +43,6 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
         queryset=AppointmentSlot.objects.all()
     )
 
-    # Nice readable output
     service_name = serializers.CharField(
         source='slot.service.name',
         read_only=True
@@ -71,6 +73,7 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'username',
+            'patient_name',
             'email',
             'phone',
 
@@ -92,6 +95,7 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id',
             'username',
+            'patient_name',
             'email',
             'phone',
             'service_name',
@@ -101,6 +105,7 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
             'end_time',
             'booked_at',
         ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -135,31 +140,26 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
         date = attrs.get('date')
         slot = attrs.get('slot')
 
-        # Make sure the selected slot matches the selected service
         if slot.service_id != service.id:
             raise serializers.ValidationError({
                 'slot': 'The selected time slot does not belong to the selected service.'
             })
 
-        # Make sure the selected slot matches the selected doctor
         if slot.doctor_id != doctor.id:
             raise serializers.ValidationError({
                 'slot': 'The selected time slot does not belong to the selected doctor.'
             })
 
-        # Make sure the selected slot matches the selected date
         if slot.date != date:
             raise serializers.ValidationError({
                 'slot': 'The selected time slot does not belong to the selected date.'
             })
 
-        # Check availability
         if not slot.is_available:
             raise serializers.ValidationError({
                 'slot': 'This time slot has already been booked. Please select another slot.'
             })
 
-        # Because Appointment.slot is OneToOneField
         if hasattr(slot, 'appointment'):
             raise serializers.ValidationError({
                 'slot': 'This time slot has already been booked. Please select another slot.'
