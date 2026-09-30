@@ -106,3 +106,23 @@ class Appointment(models.Model):
             f"{self.date} - "
             f"{self.slot}"
         )
+
+
+class AppointmentFeedback(models.Model):
+    appointment = models.OneToOneField(
+        Appointment,
+        on_delete=models.CASCADE,
+        related_name='feedback'
+    )
+    notes = models.TextField()
+    diagnosis = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    follow_up = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return (
+            f"Feedback for appointment "
+            f"{self.appointment.id}"
+        )

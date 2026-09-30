@@ -8,6 +8,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 
 from accounts.models import User
 
@@ -17,13 +18,14 @@ from notifications.services import (
     send_notification_sms,
 )
 
-from .models import Appointment, AppointmentSlot
+from .models import Appointment, AppointmentSlot, AppointmentFeedback
 from .serializers import (
     AdminAppointmentSerializer,
     AppointmentBookingSerializer,
     AvailableSlotSerializer,
     AppointmentUpdateSerializer,
     DoctorAppointmentSerializer,
+    AppointmentFeedbackSerializer,
 )
 
 
@@ -369,3 +371,105 @@ class AdminAppointmentListView(generics.ListAPIView):
             'service',
             'slot',
         ).order_by('-booked_at')
+
+class DoctorAppointmentFeedbackView(
+    generics.CreateAPIView
+):
+    serializer_class = AppointmentFeedbackSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        appointment_id = self.request.data.get(
+            'appointment'
+        )
+
+        try:
+            appointment = Appointment.objects.get(
+                id=appointment_id
+            )
+        except Appointment.DoesNotExist:
+            raise PermissionDenied(
+                'Appointment not found.'
+            )
+
+        try:
+            doctor = self.request.user.doctor_profile
+        except AttributeError:
+            raise PermissionDenied(
+                'You are not registered as a doctor.'
+            )
+
+        if appointment.doctor != doctor:
+            raise PermissionDenied(
+                'You can only write feedback for your own appointments.'
+            )
+
+        if appointment.status != Appointment.Status.COMPLETED:
+            raise PermissionDenied(
+                'Feedback can only be added to completed appointments.'
+            )
+
+        if AppointmentFeedback.objects.filter(
+            appointment=appointment
+        ).exists():
+            raise PermissionDenied(
+                'Feedback has already been added for this appointment.'
+            )
+
+        serializer.save(
+            appointment=appointment
+        )
+
+
+class DoctorAppointmentFeedbackUpdateView(
+    generics.UpdateAPIView
+):
+    serializer_class = AppointmentFeedbackSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        try:
+            doctor = self.request.user.doctor_profile
+        except AttributeError:
+            return AppointmentFeedback.objects.none()
+
+        return AppointmentFeedback.objects.filter(
+            appointment__doctor=doctor
+        )
+
+class DoctorAppointmentFeedbackDeleteView(
+    generics.DestroyAPIView
+):
+    serializer_class = AppointmentFeedbackSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        try:
+            doctor = self.request.user.doctor_profile
+        except AttributeError:
+            return AppointmentFeedback.objects.none()
+
+        return AppointmentFeedback.objects.filter(
+            appointment__doctor=doctor
+        )
+
+
+class PatientAppointmentFeedbackListView(
+    generics.ListAPIView
+):
+    serializer_class = AppointmentFeedbackSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            AppointmentFeedback.objects
+            .filter(
+                appointment__patient=self.request.user
+            )
+            .select_related(
+                'appointment',
+                'appointment__doctor',
+                'appointment__service',
+            )
+            .order_by('-created_at')
+        )

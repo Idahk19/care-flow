@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Appointment, AppointmentSlot
+from .models import Appointment, AppointmentFeedback, AppointmentSlot
 from hospital.models import Doctor, Service
 
 
@@ -313,3 +313,47 @@ class AdminAppointmentSerializer(serializers.ModelSerializer):
         doctor = obj.doctor
 
         return f"Dr. {doctor.first_name} {doctor.last_name}"
+    
+
+class AppointmentFeedbackSerializer(serializers.ModelSerializer):
+    doctor_name = serializers.SerializerMethodField()
+    appointment_date = serializers.DateField(
+        source='appointment.date',
+        read_only=True
+    )
+    service_name = serializers.CharField(
+        source='appointment.service.name',
+        read_only=True
+    )
+
+    class Meta:
+        model = AppointmentFeedback
+        fields = [
+            'id',
+            'appointment',
+            'doctor_name',
+            'appointment_date',
+            'service_name',
+            'notes',
+            'diagnosis',
+            'recommendations',
+            'follow_up',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'doctor_name',
+            'appointment_date',
+            'service_name',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_doctor_name(self, obj):
+        doctor = obj.appointment.doctor
+
+        return (
+            f"Dr. {doctor.first_name} "
+            f"{doctor.last_name}"
+        )

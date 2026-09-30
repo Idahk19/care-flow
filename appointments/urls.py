@@ -10,6 +10,10 @@ from .views import (
     AvailableSlotListView,
     DoctorDashboardView,
     DoctorTodayAppointmentsView,
+    DoctorAppointmentFeedbackView,
+    DoctorAppointmentFeedbackUpdateView,
+    DoctorAppointmentFeedbackDeleteView,
+    PatientAppointmentFeedbackListView,
 )
 
 urlpatterns = [
@@ -58,5 +62,28 @@ path(
     'admin/',
     AdminAppointmentListView.as_view(),
     name='admin-appointment-list'
+),
+path(
+    'doctor/feedback/',
+    DoctorAppointmentFeedbackView.as_view(),
+    name='doctor-feedback'
+),
+
+path(
+    'doctor/feedback/<int:pk>/',
+    DoctorAppointmentFeedbackUpdateView.as_view(),
+    name='doctor-feedback-update'
+),
+
+path(
+    'doctor/feedback/<int:pk>/delete/',
+    DoctorAppointmentFeedbackDeleteView.as_view(),
+    name='doctor-feedback-delete'
+),
+
+path(
+    'my-feedback/',
+    PatientAppointmentFeedbackListView.as_view(),
+    name='my-feedback'
 ),
 ]
