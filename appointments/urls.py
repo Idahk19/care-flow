@@ -8,6 +8,7 @@ from .views import (
     AppointmentUpdateView,
     AppointmentDeleteView,
     AvailableSlotListView,
+    DoctorAppointmentFeedbackListCreateView,
     DoctorAppointmentFeedbackListView,
     DoctorDashboardView,
     DoctorTodayAppointmentsView,
@@ -65,9 +66,9 @@ path(
     name='admin-appointment-list'
 ),
 path(
-    'doctor/feedback/',
-    DoctorAppointmentFeedbackView.as_view(),
-    name='doctor-feedback'
+    "doctor/feedback/",
+    DoctorAppointmentFeedbackListCreateView.as_view(),
+    name="doctor-feedback",
 ),
 
 path(
@@ -87,9 +88,5 @@ path(
     PatientAppointmentFeedbackListView.as_view(),
     name='my-feedback'
 ),
-path(
-    'doctor/feedback/',
-    DoctorAppointmentFeedbackListView.as_view(),
-    name='doctor-feedback-list'
-),
+
 ]

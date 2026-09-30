@@ -372,15 +372,35 @@ class AdminAppointmentListView(generics.ListAPIView):
             'slot',
         ).order_by('-booked_at')
 
-class DoctorAppointmentFeedbackView(
-    generics.CreateAPIView
+class DoctorAppointmentFeedbackListCreateView(
+    generics.ListCreateAPIView
 ):
     serializer_class = AppointmentFeedbackSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        try:
+            doctor = self.request.user.doctor_profile
+        except AttributeError:
+            return AppointmentFeedback.objects.none()
+
+        return (
+            AppointmentFeedback.objects
+            .filter(
+                appointment__doctor=doctor
+            )
+            .select_related(
+                "appointment",
+                "appointment__patient",
+                "appointment__doctor",
+                "appointment__service",
+            )
+            .order_by("-created_at")
+        )
+
     def perform_create(self, serializer):
         appointment_id = self.request.data.get(
-            'appointment'
+            "appointment"
         )
 
         try:
@@ -389,31 +409,31 @@ class DoctorAppointmentFeedbackView(
             )
         except Appointment.DoesNotExist:
             raise PermissionDenied(
-                'Appointment not found.'
+                "Appointment not found."
             )
 
         try:
             doctor = self.request.user.doctor_profile
         except AttributeError:
             raise PermissionDenied(
-                'You are not registered as a doctor.'
+                "You are not registered as a doctor."
             )
 
         if appointment.doctor != doctor:
             raise PermissionDenied(
-                'You can only write feedback for your own appointments.'
+                "You can only write feedback for your own appointments."
             )
 
         if appointment.status != Appointment.Status.COMPLETED:
             raise PermissionDenied(
-                'Feedback can only be added to completed appointments.'
+                "Feedback can only be added to completed appointments."
             )
 
         if AppointmentFeedback.objects.filter(
             appointment=appointment
         ).exists():
             raise PermissionDenied(
-                'Feedback has already been added for this appointment.'
+                "Feedback has already been added for this appointment."
             )
 
         serializer.save(
