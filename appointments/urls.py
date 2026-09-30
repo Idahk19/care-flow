@@ -12,7 +12,6 @@ from .views import (
     DoctorAppointmentFeedbackListView,
     DoctorDashboardView,
     DoctorTodayAppointmentsView,
-    DoctorAppointmentFeedbackView,
     DoctorAppointmentFeedbackUpdateView,
     DoctorAppointmentFeedbackDeleteView,
     PatientAppointmentFeedbackListView,
