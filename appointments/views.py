@@ -473,3 +473,28 @@ class PatientAppointmentFeedbackListView(
             )
             .order_by('-created_at')
         )
+
+class DoctorAppointmentFeedbackListView(
+    generics.ListAPIView
+):
+    serializer_class = AppointmentFeedbackSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        try:
+            doctor = self.request.user.doctor_profile
+        except AttributeError:
+            return AppointmentFeedback.objects.none()
+
+        return (
+            AppointmentFeedback.objects
+            .filter(
+                appointment__doctor=doctor
+            )
+            .select_related(
+                'appointment',
+                'appointment__patient',
+                'appointment__service',
+            )
+            .order_by('-created_at')
+        )
