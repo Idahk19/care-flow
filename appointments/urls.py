@@ -9,7 +9,6 @@ from .views import (
     AppointmentDeleteView,
     AvailableSlotListView,
     DoctorAppointmentFeedbackListCreateView,
-    DoctorAppointmentFeedbackListView,
     DoctorDashboardView,
     DoctorTodayAppointmentsView,
     DoctorAppointmentFeedbackUpdateView,
