@@ -233,6 +233,7 @@ class DoctorAppointmentSerializer(serializers.ModelSerializer):
         source='slot.end_time',
         read_only=True
     )
+    has_feedback = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -245,7 +246,10 @@ class DoctorAppointmentSerializer(serializers.ModelSerializer):
             'start_time',
             'end_time',
             'status',
+            'has_feedback',
         ]
+    def get_has_feedback(self, obj):
+        return hasattr(obj, 'feedback')
 
 class AdminAppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(
