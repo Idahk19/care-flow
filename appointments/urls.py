@@ -24,7 +24,11 @@ urlpatterns = [
         AppointmentCreateView.as_view(),
         name='appointment-book'
     ),
-
+    path(
+    '<int:pk>/cancel/',
+    AppointmentUpdateView.as_view(),
+    name='appointment-cancel'
+),
     path(
         'slots/',
         AvailableSlotListView.as_view(),
