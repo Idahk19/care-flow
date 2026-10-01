@@ -36,6 +36,12 @@ class DoctorViewSet(viewsets.ModelViewSet):
     queryset = Doctor.objects.all()
     serializer_class = DoctorSerializer
 
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return DoctorCreateSerializer
+
+        return DoctorSerializer
+
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             permission_classes = [permissions.IsAuthenticated]
@@ -43,7 +49,7 @@ class DoctorViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.IsAdminUser]
 
         return [permission() for permission in permission_classes]
-
+    
 class AdminDashboardView(APIView):
     permission_classes = [IsAdminUser]
     
