@@ -26,13 +26,11 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
     )
 
     service = serializers.PrimaryKeyRelatedField(
-        queryset=Service.objects.filter(is_active=True),
-        write_only=True
+        queryset=Service.objects.filter(is_active=True)
     )
 
     doctor = serializers.PrimaryKeyRelatedField(
-        queryset=Doctor.objects.filter(is_active=True),
-        write_only=True
+        queryset=Doctor.objects.filter(is_active=True)
     )
 
     date = serializers.DateField(
@@ -76,18 +74,15 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
             'patient_name',
             'email',
             'phone',
-
             'service',
             'doctor',
             'date',
             'slot',
-
             'service_name',
             'doctor_name',
             'appointment_date',
             'start_time',
             'end_time',
-
             'status',
             'booked_at',
         ]
@@ -132,7 +127,11 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
 
     def get_doctor_name(self, obj):
         doctor = obj.slot.doctor
-        return f"Dr. {doctor.first_name} {doctor.last_name}"
+
+        return (
+            f"Dr. {doctor.first_name} "
+            f"{doctor.last_name}"
+        )
 
     def validate(self, attrs):
         service = attrs.get('service')
@@ -142,31 +141,47 @@ class AppointmentBookingSerializer(serializers.ModelSerializer):
 
         if slot.service_id != service.id:
             raise serializers.ValidationError({
-                'slot': 'The selected time slot does not belong to the selected service.'
+                'slot': (
+                    'The selected time slot does not belong '
+                    'to the selected service.'
+                )
             })
 
         if slot.doctor_id != doctor.id:
             raise serializers.ValidationError({
-                'slot': 'The selected time slot does not belong to the selected doctor.'
+                'slot': (
+                    'The selected time slot does not belong '
+                    'to the selected doctor.'
+                )
             })
 
         if slot.date != date:
             raise serializers.ValidationError({
-                'slot': 'The selected time slot does not belong to the selected date.'
+                'slot': (
+                    'The selected time slot does not belong '
+                    'to the selected date.'
+                )
             })
 
         if not slot.is_available:
             raise serializers.ValidationError({
-                'slot': 'This time slot has already been booked. Please select another slot.'
+                'slot': (
+                    'This time slot has already been booked. '
+                    'Please select another slot.'
+                )
             })
 
         if hasattr(slot, 'appointment'):
             raise serializers.ValidationError({
-                'slot': 'This time slot has already been booked. Please select another slot.'
+                'slot': (
+                    'This time slot has already been booked. '
+                    'Please select another slot.'
+                )
             })
 
         return attrs
-    
+
+
 class AvailableSlotSerializer(serializers.ModelSerializer):
 
     label = serializers.SerializerMethodField()
@@ -186,6 +201,7 @@ class AvailableSlotSerializer(serializers.ModelSerializer):
             f"{obj.start_time.strftime('%H.%M')} - "
             f"{obj.end_time.strftime('%H.%M')}"
         )
+
 
 class AppointmentUpdateSerializer(serializers.ModelSerializer):
 
@@ -233,10 +249,12 @@ class DoctorAppointmentSerializer(serializers.ModelSerializer):
         source='slot.end_time',
         read_only=True
     )
+
     has_feedback = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
+
         fields = [
             'id',
             'patient_name',
@@ -248,8 +266,10 @@ class DoctorAppointmentSerializer(serializers.ModelSerializer):
             'status',
             'has_feedback',
         ]
+
     def get_has_feedback(self, obj):
         return hasattr(obj, 'feedback')
+
 
 class AdminAppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(
@@ -298,6 +318,7 @@ class AdminAppointmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Appointment
+
         fields = [
             'id',
             'patient_name',
@@ -316,15 +337,20 @@ class AdminAppointmentSerializer(serializers.ModelSerializer):
     def get_doctor_name(self, obj):
         doctor = obj.doctor
 
-        return f"Dr. {doctor.first_name} {doctor.last_name}"
-    
+        return (
+            f"Dr. {doctor.first_name} "
+            f"{doctor.last_name}"
+        )
+
 
 class AppointmentFeedbackSerializer(serializers.ModelSerializer):
     doctor_name = serializers.SerializerMethodField()
+
     appointment_date = serializers.DateField(
         source='appointment.date',
         read_only=True
     )
+
     service_name = serializers.CharField(
         source='appointment.service.name',
         read_only=True
@@ -332,6 +358,7 @@ class AppointmentFeedbackSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AppointmentFeedback
+
         fields = [
             'id',
             'appointment',
@@ -345,6 +372,7 @@ class AppointmentFeedbackSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
         read_only_fields = [
             'id',
             'doctor_name',

@@ -143,7 +143,11 @@ class AppointmentUpdateView(generics.UpdateAPIView):
 
         appointment = self.get_object()
 
-        old_slot = appointment.slot
+        old_slot = (
+            AppointmentSlot.objects
+            .select_for_update()
+            .get(id=appointment.slot_id)
+        )
 
         new_status = serializer.validated_data.get('status')
         new_slot = serializer.validated_data.get('slot')
@@ -155,6 +159,7 @@ class AppointmentUpdateView(generics.UpdateAPIView):
             )
 
             old_slot.is_available = True
+
             old_slot.save(
                 update_fields=['is_available']
             )
@@ -164,6 +169,12 @@ class AppointmentUpdateView(generics.UpdateAPIView):
         if new_slot is None:
             serializer.save()
             return
+
+        new_slot = (
+            AppointmentSlot.objects
+            .select_for_update()
+            .get(id=new_slot.id)
+        )
 
         if new_slot.id == old_slot.id:
             serializer.save()
@@ -177,12 +188,22 @@ class AppointmentUpdateView(generics.UpdateAPIView):
                 )
             })
 
+        if hasattr(new_slot, 'appointment'):
+            raise ValidationError({
+                'slot': (
+                    'This time slot has already been booked. '
+                    'Please select another slot.'
+                )
+            })
+
         old_slot.is_available = True
+
         old_slot.save(
             update_fields=['is_available']
         )
 
         new_slot.is_available = False
+
         new_slot.save(
             update_fields=['is_available']
         )
@@ -190,8 +211,7 @@ class AppointmentUpdateView(generics.UpdateAPIView):
         serializer.save(
             slot=new_slot
         )
-
-
+        
 class AppointmentDeleteView(generics.DestroyAPIView):
     queryset = Appointment.objects.all()
     serializer_class = AppointmentBookingSerializer
