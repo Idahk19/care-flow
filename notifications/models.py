@@ -10,6 +10,7 @@ class Notification(models.Model):
         CHECKED_IN = 'CHECKED_IN', 'Checked In'
         ALMOST_TURN = 'ALMOST_TURN', 'Almost Your Turn'
         YOUR_TURN = 'YOUR_TURN', 'Your Turn'
+        FEEDBACK_ADDED = 'FEEDBACK_ADDED', 'Feedback Added'
 
     patient = models.ForeignKey(
         settings.AUTH_USER_MODEL,

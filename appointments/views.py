@@ -440,6 +440,30 @@ class DoctorAppointmentFeedbackListCreateView(
             appointment=appointment
         )
 
+        doctor_name = (
+            f"Dr. {doctor.first_name} "
+            f"{doctor.last_name}"
+        )
+
+        message = (
+            f"{doctor_name} has added feedback for your "
+            f"recent {appointment.service.name} appointment. "
+            f"Log in to CareFlow to view your appointment "
+            f"feedback, recommendations and follow-up information."
+        )
+
+        notification, created = create_notification(
+            patient=appointment.patient,
+            appointment=appointment,
+            notification_type=Notification.Type.FEEDBACK_ADDED,
+            message=message,
+        )
+
+        if created:
+            send_notification_sms(
+                patient=appointment.patient,
+                message=message,
+        )
 
 class DoctorAppointmentFeedbackUpdateView(
     generics.UpdateAPIView
